@@ -46,13 +46,32 @@ app.use(session({
 // --- AUTHORIZATION ENGINE ENDPOINTS ---
 app.post('/api/auth/login', async (req, res) => {
   try {
+    // Frontend aynan shu ikki nomda ma'lumot jo'natadi: username va password
     const { username, password } = req.body;
+
+    // Railway paneldagi o'zgaruvchilarni chaqirib olamiz
+    // Dashboardda Key nomi ADMIN_EMAIL bo'lsa ham, uning ichidagi Value siz kiritgan USERNAME dir!
+    const railwayAdminUser = process.env.ADMIN_EMAIL; 
+    const railwayAdminPassword = process.env.ADMIN_PASSWORD;
+
+    // 1-Tekshiruv: Railway UI orqali kiritilgan login va parol bilan solishtirish
+    if (railwayAdminUser && railwayAdminPassword) {
+      if (username === railwayAdminUser && password === railwayAdminPassword) {
+        req.session.isAdmin = true;
+        return res.json({ success: true, message: "Tizimga muvaffaqiyatli kirdingiz! (Env orqali)" });
+      }
+    }
+
+    // 2-Tekshiruv: Agar Railway'dagiga mos kelmasa, zapas variant — bazadan qidiradi
     const admin = await dbGet('SELECT * FROM admin WHERE username = ? AND password = ?', [username, password]);
     if (admin) {
       req.session.isAdmin = true;
-      return res.json({ success: true });
+      return res.json({ success: true, message: "Tizimga muvaffaqiyatli kirdingiz! (Baza orqali)" });
     }
+
+    // Hech biri to'g'ri kelmasa
     return res.status(400).json({ error: 'Noto\'g\'ri login yoki parol kiritildi!' });
+
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -163,7 +182,6 @@ app.post('/api/lessons', checkAuth, async (req, res) => {
   try {
     const { day, time_slot_id, room_id, group_id, teacher_id } = req.body;
 
-    // Hard block real-time operational conflicts safely at server layer
     if (await dbGet('SELECT id FROM lessons WHERE day=? AND time_slot_id=? AND room_id=?', [day, time_slot_id, room_id])) {
       return res.status(400).json({ error: 'Struktura xatosi: Tanlangan xonada bu vaqtda dars bor!' });
     }
@@ -204,28 +222,4 @@ initDb().then(() => {
   app.listen(PORT, () => console.log(`[SYSTEM CONFIRMED] Server executing seamlessly on infrastructure channel port: ${PORT}`));
 }).catch(err => {
   console.error("[CRITICAL BOOT FAILURE]", err);
-});
-// backend/src/server.ts (yoki login tekshiradigan faylingiz)
-
-app.post('/api/login', (req, res) => {
-  const { email, password } = req.body;
-
-  // Railway dashboard'ga yozgan Key nomlaringiz bilan bir xil bo'lishi shart!
-  const railwayEmail = process.env.ADMIN_EMAIL;
-  const railwayPassword = process.env.ADMIN_PASSWORD;
-
-  // Kod endi Railway UI'dan kelayotgan ma'lumotni tekshiradi
-  if (email === railwayEmail && password === railwayPassword) {
-    return res.json({ 
-      success: true, 
-      role: 'admin',
-      message: "Tizimga muvaffaqiyatli kirdingiz!" 
-    });
-  }
-
-  // Agar to'g'ri kelmasa, siz ko'rayotgan xatolikni qaytaradi
-  return res.status(401).json({ 
-    success: false, 
-    message: "Noto'g'ri login yoki parol kiritildi!" 
-  });
 });
