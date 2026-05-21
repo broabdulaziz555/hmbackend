@@ -205,3 +205,27 @@ initDb().then(() => {
 }).catch(err => {
   console.error("[CRITICAL BOOT FAILURE]", err);
 });
+// backend/src/server.ts (yoki login tekshiradigan faylingiz)
+
+app.post('/api/login', (req, res) => {
+  const { email, password } = req.body;
+
+  // Railway dashboard'ga yozgan Key nomlaringiz bilan bir xil bo'lishi shart!
+  const railwayEmail = process.env.ADMIN_EMAIL;
+  const railwayPassword = process.env.ADMIN_PASSWORD;
+
+  // Kod endi Railway UI'dan kelayotgan ma'lumotni tekshiradi
+  if (email === railwayEmail && password === railwayPassword) {
+    return res.json({ 
+      success: true, 
+      role: 'admin',
+      message: "Tizimga muvaffaqiyatli kirdingiz!" 
+    });
+  }
+
+  // Agar to'g'ri kelmasa, siz ko'rayotgan xatolikni qaytaradi
+  return res.status(401).json({ 
+    success: false, 
+    message: "Noto'g'ri login yoki parol kiritildi!" 
+  });
+});
